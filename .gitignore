@@ -1,0 +1,16 @@
+# caches / generated artifacts
+__pycache__/
+*.pyc
+cache/
+dblp_cache/
+validation_cache/
+*.log
+*_dump.txt
+
+# project-specific data (keep overrides.example.json)
+overrides_*.json
+!overrides.example.json
+*.csv
+
+# OS
+.DS_Store

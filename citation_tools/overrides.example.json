@@ -1,0 +1,11 @@
+{
+  "koren2009matrix": {
+    "Organization": "Yahoo Research; AT&T Labs",
+    "Category_related_work": "Matrix factorization / collaborative filtering"
+  },
+  "vaswani2017attention": {
+    "Organization": "Google Brain; Google Research",
+    "Category_related_work": "Transformer architectures",
+    "latest_venue_link": "https://proceedings.neurips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html"
+  }
+}
