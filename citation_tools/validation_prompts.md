@@ -40,7 +40,16 @@ For each row, open the paper's latest published venue page (ACL Anthology, OpenR
 NeurIPS/PMLR/JMLR proceedings, publisher); use arXiv only if it is an unpublished preprint.
 The CSV is human-readable Unicode and must be EXACTLY the source's own form.
 
-Verify every field: title, authors (every author, exact order), year, venue/journal/
+FIRST, for every entry — ESPECIALLY anything cited as a preprint (`@article{…arXiv…}`,
+`@misc`, "arXiv preprint …"): actively determine whether a PEER-REVIEWED PUBLISHED VERSION
+exists. Check the arXiv abstract page's "Comments"/"Journal ref" field (it often says e.g.
+"Published as a conference paper at COLM 2024"), DBLP (a conf/ or journals/ entry = published),
+OpenReview (an Accept decision), and Semantic Scholar's venue. If a published version exists,
+the citation MUST use that venue + year — arXiv is acceptable ONLY after you confirm none exists.
+Do not trust the entry's self-declared type, and do not trust an aggregator's "primary" record
+(OpenAlex/CrossRef often index the preprint).
+
+Then verify every field: title, authors (every author, exact order), year, venue/journal/
 booktitle, volume, number, pages, publisher, arXiv id, DOI/URL links, abstract.
 
 - Character-for-character, case-sensitive. No normalizing away capitalization, accents,
@@ -100,6 +109,9 @@ For each reference verify, character-for-character, case-sensitive — as RENDER
   unless the source itself truncates.
 - year, venue, volume, number, pages, publisher — exactly the source's values; a field the
   source lacks must NOT appear (no invented volume/pages).
+- venue existence — if the PDF cites an arXiv preprint but the paper was actually PUBLISHED
+  at a venue (check the arXiv "Comments"/journal-ref, DBLP, OpenReview), that is a FAIL: the
+  reference must cite the published venue, not arXiv.
 
 A citation PASSES ONLY if its rendered PDF entry is exactly the same as the online source.
 For each FAIL give: the PDF text, the online source value, and the fix to make in <BIB_FILE>.
@@ -115,6 +127,7 @@ of what the .bib or CSV look like internally. Accuracy is the top priority; one 
 
 | Rule | Real miss it prevents |
 |---|---|
+| check for a published venue, don't trust the preprint type | ReAct cited as arXiv 2022 was ICLR 2023; RULER as arXiv was COLM 2024 (arXiv "Comments" announce the venue) |
 | final check is PDF↔online; judge bib by rendered output | `Mem-$\{$$\backslash$alpha$\}$` printed literal `Mem-{\alpha}`; a lossy normalizer called it a match |
 | no case normalization | `change.case` printed `Memagent… llm`; lowercasing both sides hid it |
 | real Unicode in CSV, no escape codes | CSV held `Dud\'\ik`, `K\"uttler`, `\&` |

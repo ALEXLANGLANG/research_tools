@@ -31,13 +31,28 @@ python3 pull_citations.py \
   [--only key1,key2]             # (re)fetch just these cite keys
   [--refresh]                    # ignore cache, refetch
   [--build-only]                 # skip fetching, just rebuild the CSV from cache + overrides
+  [--check-venues]               # flag arXiv-cited entries that were actually PUBLISHED at a venue
+```
+
+### `--check-venues` (avoid citing arXiv when a paper was published)
+
+A paper cited as an arXiv preprint may actually have a peer-reviewed version (e.g. ReAct →
+ICLR 2023, RULER → COLM 2024). With `--check-venues`, for every entry the bib cites as a
+preprint the tool reads the **arXiv "Comments"/journal-ref** field (which often announces the
+venue, e.g. *"Published as a conference paper at COLM 2024"*) plus a best-effort **DBLP** venue
+lookup, fills the `published_venue_hint` column, and prints a warning list:
+
+```
+⚠ 2 arXiv-cited entries appear PUBLISHED at a venue — cite the venue, not arXiv:
+  liang2022holistic: journal_ref=Published in Transactions on Machine Learning Research (TMLR), 2023
+  ...
 ```
 
 ### Output columns
 
 `cite_key, entry_type, title, authors, year, journal, booktitle, volume, number, pages,
 publisher, bib_organization, arxiv_id, url, venue, abstract, Category_related_work,
-Organization, arXiv_link, latest_venue_link, _found, _source`
+Organization, arXiv_link, latest_venue_link, published_venue_hint, _found, _source`
 
 - Raw bib fields (`journal`…`url`) are taken verbatim from the `.bib`; LaTeX accents are
   decoded to Unicode (`Dud{\'\i}k` → `Dudík`), HTML entities and `\emph{}` are cleaned.

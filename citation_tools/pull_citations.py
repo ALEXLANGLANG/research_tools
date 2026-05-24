@@ -58,6 +58,7 @@ HOST_MIN_DELAY = {
     "api.crossref.org": 0.4,
     "api.openalex.org": 0.4,
     "api.semanticscholar.org": 3.5,
+    "dblp.org": 3.0,
 }
 _LAST_HIT: dict[str, float] = {}
 
@@ -368,6 +369,67 @@ def fetch_arxiv(arxiv_id: str) -> dict:
         "journal": "",
         "institutions": [],
     }
+
+
+# ---------------------------------------------------------------- published-venue detection
+ARXIV_META_NS = {"arxiv": "http://arxiv.org/schemas/atom"}
+# signals in an arXiv comment / journal_ref that the paper was published at a venue
+_VENUE_RE = re.compile(
+    r"\b(published|accepted|to appear|camera.?ready|proceedings of|in proceedings|"
+    r"ICLR|NeurIPS|NIPS|ICML|ACL|EMNLP|NAACL|COLING|COLM|AAAI|IJCAI|CVPR|ICCV|ECCV|"
+    r"KDD|SIGIR|WWW|TACL|JMLR|TMLR|TPAMI|Transactions on)\b", re.IGNORECASE)
+
+
+def arxiv_venue_signals(arxiv_id: str) -> dict:
+    """The arXiv entry's comment + journal_ref — these often announce the published
+    venue, e.g. 'Published as a conference paper at COLM 2024'."""
+    try:
+        root = ET.fromstring(http_get(f"https://export.arxiv.org/api/query?id_list={arxiv_id}"))
+        entry = root.find("a:entry", ARXIV_NS)
+        if entry is None:
+            return {}
+        comment = (entry.findtext("arxiv:comment", default="", namespaces=ARXIV_META_NS) or "").strip()
+        jref = (entry.findtext("arxiv:journal_ref", default="", namespaces=ARXIV_META_NS) or "").strip()
+        return {"comment": re.sub(r"\s+", " ", comment), "journal_ref": re.sub(r"\s+", " ", jref)}
+    except Exception:
+        return {}
+
+
+def dblp_venue(title: str) -> str:
+    """Best-effort: DBLP's venue for the best title match. '' if CoRR (= arXiv), no match,
+    or DBLP is unreachable (DBLP rate-limits hard, so failures are swallowed)."""
+    try:
+        data = json.loads(http_get(f"https://dblp.org/search/publ/api?q={urllib.parse.quote(title)}&format=json&h=5"))
+    except Exception:
+        return ""
+    hits = (((data or {}).get("result") or {}).get("hits") or {}).get("hit") or []
+    target = _norm(title)
+    best, bs = None, 0.0
+    for h in hits:
+        info = h.get("info", {})
+        s = _sim(_norm(info.get("title", "") or ""), target)
+        if s > bs:
+            bs, best = s, info
+    if not best or bs < 0.6:
+        return ""
+    venue = html.unescape(best.get("venue", "") or "")
+    return "" if venue.strip().lower() in ("", "corr") else venue
+
+
+def published_venue_hint(arxiv_id: str, title: str) -> str:
+    """Return a non-empty hint iff the paper looks PUBLISHED at a venue (so an arXiv-only
+    citation would be wrong). Combines the arXiv comment/journal_ref with a DBLP venue check."""
+    parts = []
+    if arxiv_id:
+        sig = arxiv_venue_signals(arxiv_id)
+        if sig.get("journal_ref"):
+            parts.append(f"journal_ref={sig['journal_ref']}")
+        elif sig.get("comment") and _VENUE_RE.search(sig["comment"]):
+            parts.append(f"comment={sig['comment']}")
+    dv = dblp_venue(title)
+    if dv:
+        parts.append(f"dblp={dv}")
+    return " | ".join(parts)
 
 
 def fetch_arxiv_by_title(title: str) -> dict:
@@ -717,6 +779,7 @@ def build_row(e: dict, src: dict) -> dict:
         "latest_venue_link": venue_link,
         "_found": "yes" if found else "no",
         "_source": src.get("source", "") if found else (src.get("error", "") or "none"),
+        "published_venue_hint": "",  # filled by --check-venues
     }
 
 
@@ -724,7 +787,7 @@ COLS = ["cite_key", "entry_type", "title", "authors", "year",
         "journal", "booktitle", "volume", "number", "pages", "publisher", "bib_organization",
         "arxiv_id", "url", "venue",
         "abstract", "Category_related_work", "Organization", "arXiv_link", "latest_venue_link",
-        "_found", "_source"]
+        "published_venue_hint", "_found", "_source"]
 
 
 def main() -> None:
@@ -737,6 +800,9 @@ def main() -> None:
     ap.add_argument("--refresh", action="store_true", help="ignore cache, refetch all")
     ap.add_argument("--build-only", action="store_true", help="skip fetching, just rebuild CSV from cache")
     ap.add_argument("--overrides", default="", help="JSON {cite_key: {col: value}} merged over built rows (manual fills win)")
+    ap.add_argument("--check-venues", action="store_true",
+                    help="for arXiv-cited entries, check the arXiv comment/journal_ref + DBLP for a "
+                         "published venue, fill published_venue_hint, and flag likely arXiv-instead-of-venue")
     args = ap.parse_args()
 
     bib_path = Path(args.bib).expanduser().resolve()
@@ -792,6 +858,21 @@ def main() -> None:
         stats["found" if row["_found"] == "yes" else "missing"] += 1
         rows.append(row)
 
+    venue_flags = []
+    if args.check_venues:
+        # entries the bib cites as a preprint (arXiv journal or @misc)
+        preprint = [(e, r) for e, r in zip(entries, rows)
+                    if e.get("journal", "").strip().lower().startswith("arxiv preprint")
+                    or e.get("entry_type") == "misc"]
+        print(f"\nChecking {len(preprint)} arXiv-cited entries for a published venue (arXiv comment/journal_ref + DBLP)...")
+        for e, r in preprint:
+            hint = published_venue_hint(e.get("arxiv_id") or "", e.get("title", ""))
+            r["published_venue_hint"] = hint
+            print(f"  {e['cite_key']}: {'PUBLISHED -> ' + hint if hint else 'preprint (no venue found)'}")
+            sys.stdout.flush()
+            if hint:
+                venue_flags.append((e["cite_key"], hint))
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLS, quoting=csv.QUOTE_ALL)
@@ -801,6 +882,14 @@ def main() -> None:
     print(f"Found online: {stats['found']}  |  NOT found: {stats['missing']}")
     if stats["missing"]:
         print("NOT FOUND:", ", ".join(r["cite_key"] for r in rows if r["_found"] == "no"))
+    if args.check_venues:
+        if venue_flags:
+            print(f"\n⚠ {len(venue_flags)} arXiv-cited entr{'y' if len(venue_flags)==1 else 'ies'} appear PUBLISHED "
+                  "at a venue — cite the venue, not arXiv:")
+            for k, h in venue_flags:
+                print(f"  {k}: {h}")
+        else:
+            print("\nVenue check: no arXiv-cited entry appears published — all genuinely preprint/arXiv-only.")
 
 
 if __name__ == "__main__":
