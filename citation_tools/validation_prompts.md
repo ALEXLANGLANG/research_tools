@@ -77,6 +77,12 @@ online source — line by line, every field. A citation PASSES only if all three
 AND completely the same on: title, authors (every author, exact order), year, venue/journal/
 booktitle, volume, number, pages, publisher, arXiv id, links.
 
+- VENUE EXISTENCE (check FIRST): for any entry cited as a preprint (`@article{…arXiv…}`, `@misc`,
+  "arXiv preprint …"), verify whether a PEER-REVIEWED PUBLISHED version exists — arXiv
+  "Comments"/journal-ref (e.g. "Published as a conference paper at COLM 2024"), DBLP, OpenReview,
+  Semantic Scholar. If published, all three places MUST cite that venue + year, not arXiv; an
+  arXiv-only citation of a published paper is a FAIL. Don't trust the self-declared preprint type
+  or an aggregator's "primary" record (OpenAlex/CrossRef often index the preprint).
 - Judge the bib by what it RENDERS, not its raw string: `Dud{\'\i}k` == `Dudík`, `$\alpha$` == α,
   `{{Title}}` == Title. But `Mem-$\{$$\backslash$alpha$\}$` renders literal "Mem-{\alpha}" and is
   WRONG. Never compare via lowercasing/stripping.
