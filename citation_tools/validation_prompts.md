@@ -31,6 +31,31 @@ Three checks, escalating:
 
 ---
 
+## Source priority — go to the PRIMARY source, skip the aggregators
+
+Validate against the primary record, never an aggregator. For each entry, read in this order:
+
+1. **The official venue page / its exported BibTeX:**
+   - ACL / EMNLP / NAACL / COLING / TACL / Findings → **ACL Anthology** (aclanthology.org) — has a per-paper BibTeX
+   - ICLR, TMLR, and recent venues → **OpenReview** (openreview.net)
+   - NeurIPS → **proceedings.neurips.cc** ; ICML / AISTATS / (COLM via) → **proceedings.mlr.press** (PMLR)
+   - JMLR → **jmlr.org** ; AAAI → **ojs.aaai.org** ; IEEE → **ieeexplore** ; ACM → **dl.acm.org** ;
+     Springer / MIT Press / Elsevier → the **publisher page** ; books → the publisher
+2. **The paper's own PDF first page / arXiv abstract page** — the printed byline, and the arXiv
+   **"Comments"/journal-ref** (which usually announces the venue).
+
+**Aggregators — OpenAlex, Semantic Scholar, CrossRef, Google Scholar, DBLP — may be used ONLY to
+DISCOVER a candidate** (find the venue / DOI). Every value they return MUST be confirmed on the
+primary source above. When an aggregator and the primary source disagree, **the primary source wins.**
+
+Why (real aggregator failures observed): they index the arXiv **preprint** and hide the published
+venue/year (ReAct shown as arXiv, not ICLR'23; RULER not COLM'24); **misparse** given-name-first /
+Chinese names ("Feng Hu"→"Feng", "An Yang"→"An"); **drop/add** authors (Toolformer lost "Hambro");
+match the **wrong record** (a 1995 Technometrics article for a Springer book); and **lowercase/strip**
+titles ("MemAgent"→"Memagent", "LLM"→"llm"). Treat every aggregator field as a hint, not a fact.
+
+---
+
 ## Prompt 1 — CSV ↔ online (2-way)
 
 ```
