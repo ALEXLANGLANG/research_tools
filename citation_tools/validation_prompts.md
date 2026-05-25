@@ -22,6 +22,10 @@ Three checks, escalating:
   venue: ACL Anthology / OpenReview / NeurIPS·PMLR·JMLR proceedings / publisher), plain Unicode.
 - **CSV = human-readable Unicode**, in the *same form as the source* (`Dudík`, `Mem-α`, `&`).
   Compare CSV↔online exactly, character-for-character.
+- **Author lists must be COMPLETE — every author from the byline, in exact order.** Never
+  truncate to `et al.`, `and others`, or `Yang, An; et al.` — not in the CSV, the bib, or the
+  rendered PDF. If a BibTeX style caps long lists (e.g. `acl_natbib.bst` prints "…and N others"),
+  raise its `max.num.names` limit so all names appear.
 - **`.bib` = LaTeX-safe** (special chars as math/commands: `$\alpha$`, `$\infty$`, `Dud{\'\i}k`;
   `\&`; double-brace `{{…}}` to protect title case from `change.case`; never raw Greek/symbol/CJK
   in text mode — it breaks pdfLaTeX).
